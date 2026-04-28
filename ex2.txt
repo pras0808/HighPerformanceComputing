@@ -1,0 +1,132 @@
+#include<stdio.h>
+#include<string.h>
+#include<mpi.h>
+
+#define MAX_STRING 100
+
+int main(void)
+{
+   int my_rank,comm_sz;
+   char message[MAX_STRING];
+   MPI_Init(NULL,NULL);
+   MPI_Comm_size(MPI_COMM_WORLD,&comm_sz);
+   MPI_Comm_rank(MPI_COMM_WORLD,&my_rank);
+   if(my_rank != 0)
+   {
+      sprintf(message,"Hello from process %d",my_rank);
+      MPI_Send(message,strlen(message)+1,MPI_CHAR,0,0,MPI_COMM_WORLD);
+   }
+   else
+   {
+      printf("Hello from process %d\n",my_rank);
+      for(int i=1;i<comm_sz;i++)
+      {
+MPI_Recv(message,MAX_STRING,MPI_CHAR,i,0,MPI_COMM_WORLD,MPI_STATUS_IGNORE);
+printf("%s\n",message);
+      }
+   }
+   MPI_Finalize();
+   return 0;
+}
+
+ada@ada:~$ mpicc 2a.c
+ada@ada:~$ mpiexec -n 4 ./a.out
+Hello from process 0
+Hello from process 1
+Hello from process 2
+Hello from process 3
+ada@ada:~$ cat 2b.c
+#include<stdio.h>
+#include<string.h>
+#include<ctype.h>
+#include<mpi.h>
+
+#define MAX 100
+#define TYPE1 1
+#define TYPE2 2
+
+int isPalindrome(char str[])
+{
+   int i=0;
+   int j=strlen(str)-1;
+   while(i<j)
+   {
+      if(str[i]!=str[j])
+      {
+return 0;
+      }
+      i++;
+      j--;
+   }
+   return 1;
+}
+int main(void)
+{
+   int my_rank,comm_sz,i,k;
+   char msg[MAX];
+   char *str1="hello";
+   char *str2="level";
+   char *str3="world";
+   char *str4="home";
+
+   MPI_Init(NULL,NULL);
+   MPI_Comm_size(MPI_COMM_WORLD,&comm_sz);
+   MPI_Comm_rank(MPI_COMM_WORLD,&my_rank);
+
+   if(my_rank==1)
+   {
+      MPI_Send(str1,strlen(str1)+1,MPI_CHAR,0,TYPE1,MPI_COMM_WORLD);
+   }
+   else if(my_rank==2)
+   {
+      MPI_Send(str2,strlen(str2)+1,MPI_CHAR,0,TYPE2,MPI_COMM_WORLD);
+   }
+   else if(my_rank==3)
+   {
+      MPI_Send(str3,strlen(str3)+1,MPI_CHAR,0,TYPE1,MPI_COMM_WORLD);
+   }
+   else if(my_rank==4)
+   {
+      MPI_Send(str4,strlen(str4)+1,MPI_CHAR,0,TYPE2,MPI_COMM_WORLD);
+   }
+   else
+   {
+      MPI_Status status;
+      for(i=1;i<comm_sz;i++)
+      {
+MPI_Recv(msg,MAX,MPI_CHAR,i,MPI_ANY_TAG,MPI_COMM_WORLD,&status);
+if(status.MPI_TAG==TYPE1)
+{
+   for(k=0;k<msg[k];k++)
+   {
+      msg[k]=toupper(msg[k]);
+   }
+   printf("From rank %d (type1) : UpperCase : %s\n",i,msg);
+}
+else if(status.MPI_TAG==TYPE2)
+{
+if(isPalindrome(msg))
+{
+    printf("From rank %d (Type2) : %s is a palindrome\n",i,msg);
+}
+else
+{
+    printf("From rank %d (Type2) : %s is not a palindrome\n",i,msg);
+}
+    }
+      }
+   }
+   MPI_Finalize();
+   return 0;
+}
+
+ada@ada:~$ mpicc 2b.c
+ada@ada:~$ mpiexec -n 4 ./a.out
+From rank 1 (type1) : UpperCase : HELLO
+From rank 2 (Type2) : level is a palindrome
+From rank 3 (type1) : UpperCase : WORLD
+ada@ada:~$ mpirun --oversubscribe -n 5 ./a.out
+From rank 1 (type1) : UpperCase : HELLO
+From rank 2 (Type2) : level is a palindrome
+From rank 3 (type1) : UpperCase : WORLD
+From rank 4 (Type2) : home is not a palindrome
